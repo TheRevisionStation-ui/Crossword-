@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crossword – The Revision Station</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --teal: #00C5C8; --teal-dark: #00a0a3; --purple: #9B6FD4;
+    --purple-light: #c4a0f0; --yellow: #FFD93D; --coral: #FF6B6B;
+    --green: #4CAF50; --white: #FFFFFF; --dark: #1a1a2e;
+    --shadow: 4px 4px 0px #1a1a2e; --shadow-lg: 6px 6px 0px #1a1a2e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Nunito", sans-serif;
+    background: var(--teal);
+    background-image: radial-gradient(circle at 15% 25%, rgba(255,255,255,0.15) 0%, transparent 40%),
+                      radial-gradient(circle at 85% 75%, rgba(155,111,212,0.2) 0%, transparent 40%);
+    min-height:100vh; padding:8px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .floaties { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:hidden; z-index:0; }
+  .floaty { position:absolute; font-size:1.8rem; opacity:0.1; animation:float 6s ease-in-out infinite; }
+  .floaty:nth-child(1){top:5%;left:3%;animation-delay:0s}
+  .floaty:nth-child(2){top:15%;right:5%;animation-delay:1s}
+  .floaty:nth-child(3){top:50%;left:2%;animation-delay:2s}
+  .floaty:nth-child(4){top:70%;right:3%;animation-delay:0.5s}
+  .floaty:nth-child(5){top:85%;left:8%;animation-delay:1.5s}
+  @keyframes float { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-15px) rotate(5deg)} }
+  .container { width:100%; max-width:1000px; position:relative; z-index:1; }
+  .header { text-align:center; margin-bottom:16px; }
+  .logo-img { width:60px; height:60px; object-fit:contain; filter:drop-shadow(3px 3px 0px rgba(0,0,0,0.3)); margin-bottom:3px; }
+  .header h1 { font-family:"Fredoka One",cursive; font-size:clamp(1.2rem,3vw,1.6rem); color:var(--white); text-shadow:3px 3px 0px var(--dark); }
+  .header p { color:var(--dark); font-size:0.9rem; font-weight:700; margin-top:3px; background:var(--yellow); display:inline-block; padding:3px 12px; border-radius:20px; border:2px solid var(--dark); }
+
+  /* LEVEL SELECT */
+  .Npx; box-shadow:var(--shadow-lg); }
+  .level-screen h2 { font-family:"Fredoka One",cursive; font-size:1.8rem; color:var(--dark); margin-bottom:8px; }
+  .level-screen p { color:#555; font-size:1rem; margin-bottom:20px; font-weight:600; }
+  .level-buttons { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .level-btn { padding:16px 28px; font-family:"Fredoka One",cursive; font-size:1.3rem; border:3px solid var(--dark); border-radius:16px; cursor:pointer; box-shadow:var(--shadow-lg); transition:all 0.15s ease; color:var(--dark); min-width:160px; }
+  .level-btn:hover { transform:translate(-2px,-2px); box-shadow:8px 8px 0px var(--dark); }
+  .level-btn.beginner { background:#b8f0b8; }
+  .level-btn.medium { background:#ffd6a5; }
+  .level-btn.advanced { background:#ffb3c6; }
+
+  /* GAME LAYOUT */
+  .game-screen { display:none; }
+  .game-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+  .level-badge { font-family:"Fredoka One",cursive; font-size:0.9rem; padding:5px 14px; border-radius:20px; border:2px solid var(--dark); box-shadow:2px 2px 0 var(--dark); }
+  .level-badge.beginner { background:#b8f0b8; }
+  .level-badge.medium { background:#ffd6a5; }
+  .level-badge.advanced { background:#ffb3c6; }
+
+  .game-layout { display:grid; grid-template-columns: auto 1fr; gap:16px; align-items:start; }
+  @media(max-width:700px) { .game-layout { grid-template-columns:1fr; } }
+
+  /* GRID */
+  .grid-wrap { background:var(--white); border:3px solid var(--dark); border-radius:16px; padding:12px; box-shadow:var(--shadow-lg); overflow-x:auto; }
+  .crossword-grid { display:inline-grid; gap:2px; }
+  .cell {
+    width:36px; height:36px; border:2px solid var(--dark); background:var(--white);
+    position:relative; display:flex; align-items:center; justify-content:center;
+  }
+  .cell.black { background:var(--dark); border-color:var(--dark); }
+  .cell input {
+    width:100%; height:100%; border:none; outline:none; text-align:center;
+    font-family:"Fredoka One",cursive; font-size:1rem; color:var(--dark);
+    background:transparent; text-transform:uppercase; cursor:pointer; padding:0;
+  }
+  .cell input:focus { background:#f0e8ff; }
+  .cell.correct input { background:#b8f0b8 !important; color:#2d8a2d; }
+  .cell.wrong input { background:#ffd6d6 !important; color:var(--coral); }
+  .cell.highlighted input { background:#fff3cd; }
+  .cell-num {
+    position:absolute; top:1px; left:2px; font-size:0.5rem;
+    font-weight:900; color:var(--purple); line-height:1; pointer-events:none;
+  }
+
+  /* CLUES */
+  .clues-wrap { background:var(--white); border:3px solid var(--dark); border-radius:16px; padding:16px; box-shadow:var(--shadow-lg); max-height:500px; overflow-y:auto; }
+  .clues-title { font-family:"Fredoka One",cursive; font-size:1.2rem; color:var(--dark); margin-bottom:10px; }
+  .clue-section { margin-bottom:16px; }
+  .clue-section h3 { font-family:"Fredoka One",cursive; font-size:1rem; color:var(--purple); margin-bottom:6px; border-bottom:2px solid var(--purple-light); padding-bottom:4px; }
+  .clue-item { font-size:0.85rem; font-weight:700; padding:4px 6px; border-radius:6px; cursor:pointer; margin-bottom:3px; transition:background 0.15s; color:var(--dark); }
+  .clue-item:hover { background:#f0e8ff; }
+  .clue-item.active { background:var(--purple-light); }
+  .clue-item.solved { color:#2d8a2d; text-decoration:line-through; opacity:0.6; }
+
+  /* BUTTONS */
+  .btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .btn {
+    padding:10px 18px; font-family:"Fredoka One",cursive; font-size:1rem;
+    border:2px solid var(--dark); border-radius:12px; cursor:pointer;
+    box-shadow:var(--shadow); transition:all 0.15s; color:var(--dark);
+  }
+  .btn:hover { transform:translate(-1px,-1px); box-shadow:var(--shadow-lg); }
+  .btn-check { background:var(--green); color:var(--white); }
+  .btn-reveal { background:var(--yellow); }
+  .btn-new { background:var(--purple); color:var(--white); }
+  .btn-level { background:var(--white); }
+
+  /* LOADING */
+  .loading { text-align:center; padding:40px; font-family:"Fredoka One",cursive; font-size:1.3rem; color:var(--purple); }
+  .spinner { display:inline-block; width:40px; height:40px; border:4px solid var(--purple-light); border-top-color:var(--purple); border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:12px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* COMPLETE */
+  .complete-banner { background:var(--yellow); border:3px solid var(--dark); border-radius:16px; padding:16px; text-align:center; box-shadow:var(--shadow-lg); margin-top:12px; display:none; animation:fadeUp 0.4s ease; }
+  .complete-banner.show { display:block; }
+  .complete-banner h2 { font-family:"Fredoka One",cursive; font-size:1.5rem; color:var(--dark); }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  /* SCORE */
+  .score-area { font-family:"Fredoka One",cursive; font-size:1rem; color:var(--white); text-shadow:1px 1px 0 var(--dark); }
+</style>
+</head>
+<body>
+<div class="floaties">
+  <div class="floaty">📚</div><div class="floaty">✏️</div><div class="floaty">🦉</div>
+  <div class="floaty">⭐</div><div class="floaty">📝</div>
+</div>
+<div class="container">
+  <div class="header">
+    <img src="data:image/jpeg;base64,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" class="logo-img" alt="The Revision Station">
+    <h1>English Crossword</h1>
+    <p>🦉 The Revision Station</p>
+  </div>
+
+  <div id="levelScreen" class="level-screen">
+    <h2>Choose Your Level</h2>
+    <p>Pick a level to generate your crossword puzzle!</p>
+    <div class="level-buttons">
+      <button class="level-btn beginner" onclick="startGame('beginner')">🌱 Beginner<br><small style="font-family:Nunito;font-size:0.75rem;font-weight:700;">A1 / A2</small></button>
+      <button class="level-btn medium" onclick="startGame('medium')">📘 Medium<br><small style="font-family:Nunito;font-size:0.75rem;font-weight:700;">B1 / B2</small></button>
+      <button class="level-btn advanced" onclick="startGame('advanced')">🔥 Advanced<br><small style="font-family:Nunito;font-size:0.75rem;font-weight:700;">C1 / C2</small></button>
+    </div>
+  </div>
+
+  <div id="gameScreen" class="game-screen">
+    <div class="game-top">
+      <span id="levelBadge" class="level-badge">Beginner</span>
+      <span class="score-area">✅ Solved: <span id="solvedCount">0</span> / <span id="totalCount">0</span></span>
+      <button class="btn btn-level" onclick="changeLevel()">Change Level</button>
+    </div>
+    <div id="loadingDiv" class="loading">
+      <div class="spinner"></div><br>Generating your puzzle...
+    </div>
+    <div id="gameLayout" class="game-layout" style="display:none">
+      <div>
+        <div class="grid-wrap">
+          <div class="crossword-grid" id="grid"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-check" onclick="checkAnswers()">✅ Check</button>
+          <button class="btn btn-reveal" onclick="revealAll()">💡 Reveal All</button>
+          <button class="btn btn-new" onclick="newPuzzle()">🔄 New Puzzle</button>
+        </div>
+        <div class="complete-banner" id="completeBanner">
+          <h2>🎉 Puzzle Complete! Well done!</h2>
+          <p style="font-weight:700;margin-top:6px;">Try a new puzzle or change level!</p>
+        </div>
+      </div>
+      <div class="clues-wrap" id="cluesWrap">
+        <div class="clues-title">📋 Clues</div>
+        <div class="clue-section">
+          <h3>➡️ Across</h3>
+          <div id="acrossClues"></div>
+        </div>
+        <div class="clue-section">
+          <h3>⬇️ Down</h3>
+          <div id="downClues"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// WORD BANKS
+// ============================================================
+const wordBanks = {
+  beginner: [
+    // Food
+    ["apple","A red or green fruit"],["bread","Made from flour, you toast it"],["butter","A yellow spread made from cream"],
+    ["cake","A sweet baked treat"],["carrot","An orange vegetable"],["cheese","Made from milk, often on pizza"],
+    ["chicken","A common white meat"],["chips","Fried potato slices (British English)"],["cream","A thick white liquid from milk"],
+    ["egg","Laid by a hen, used in cooking"],["fish","An animal from water, also a food"],["flour","A white powder for baking"],
+    ["grape","A small round fruit in clusters"],["honey","A sweet sticky substance from bees"],["juice","A fruity drink"],
+    ["lemon","A yellow sour fruit"],["mango","A tropical orange fruit"],["melon","A large juicy fruit with green skin"],
+    ["milk","A white drink from cows"],["onion","A vegetable that makes you cry"],["orange","A round orange coloured fruit"],
+    ["pasta","An Italian food from flour and water"],["peach","A soft sweet fruit with fuzzy skin"],
+    ["pizza","A round flat bread with toppings"],["potato","A brown vegetable from underground"],
+    ["rice","Small white grains eaten with curry"],["salad","Made with lettuce and vegetables"],
+    ["salt","A white seasoning for food"],["soup","A hot liquid meal with vegetables"],
+    ["sugar","Makes things sweet"],["toast","Bread heated until brown"],["tomato","A red fruit used in sauces"],
+    // Animals
+    ["bear","A large furry animal that hibernates"],["bird","A feathered animal that can fly"],
+    ["camel","A desert animal with a hump"],["cat","A popular pet that meows"],
+    ["cow","A farm animal that gives milk"],["deer","A graceful animal with antlers"],
+    ["dog","A popular pet that barks"],["duck","A water bird that quacks"],
+    ["eagle","A large bird of prey"],["elephant","The largest land animal with a trunk"],
+    ["fox","A red wild animal with a bushy tail"],["frog","A green amphibian that jumps"],
+    ["goat","A farm animal kept for milk"],["horse","A large animal you can ride"],
+    ["lion","The king of the jungle"],["monkey","A clever primate in trees"],
+    ["mouse","A small grey animal"],["owl","A bird that hoots at night"],
+    ["parrot","A colourful bird that copies speech"],["penguin","A black and white bird that cannot fly"],
+    ["pig","A pink farm animal"],["rabbit","A fluffy animal with long ears"],
+    ["shark","A large predatory fish"],["sheep","A fluffy farm animal giving wool"],
+    ["snake","A long reptile with no legs"],["tiger","A large striped orange cat"],
+    ["turtle","A slow reptile with a hard shell"],["whale","The largest ocean animal"],
+    ["wolf","A wild animal related to the dog"],["zebra","A black and white striped animal"],
+    // Clothes
+    ["belt","Worn around the waist"],["boots","Footwear covering the ankle"],
+    ["cap","A hat with a peak at the front"],["coat","A warm outer garment for winter"],
+    ["dress","A one piece garment for women"],["gloves","Worn on hands to keep warm"],
+    ["hat","Worn on the head"],["jacket","A short coat"],
+    ["jeans","Trousers made from denim"],["jumper","British English for a warm knitted top"],
+    ["scarf","Worn around the neck to keep warm"],["shirt","Worn on the top half of the body"],
+    ["shoes","Worn on the feet"],["shorts","Short trousers worn in summer"],
+    ["skirt","A garment hanging from the waist"],["socks","Worn on feet inside shoes"],
+    ["suit","A matching jacket and trousers"],["tie","A long fabric worn around the neck"],
+    ["vest","British English for an undergarment"],
+    // Weather
+    ["cloud","White and fluffy in the sky"],["fog","Thick mist making it hard to see"],
+    ["frost","Ice crystals in cold weather"],["hail","Ice balls falling like rain"],
+    ["ice","Frozen water"],["mist","Light fog"],["rain","Water falling from clouds"],
+    ["snow","White frozen water from the sky"],["storm","Rain, wind and lightning together"],
+    ["wind","Moving air"],
+    // School
+    ["book","Used for reading and learning"],["desk","A table where a student sits"],
+    ["exam","A formal test to check knowledge"],["glue","A sticky substance joining things"],
+    ["lesson","A period of learning in school"],["pencil","A writing tool with a graphite tip"],
+    ["ruler","Used to measure and draw straight lines"],["rubber","British English for eraser"],
+    ["scissors","Used to cut paper"],["teacher","Someone who teaches in school"],
+    // House
+    ["bed","You sleep in it"],["chair","You sit on it"],["clock","Tells you the time"],
+    ["door","You open it to enter a room"],["floor","The bottom of a room"],
+    ["glass","You drink water from it"],["lamp","A light you place on a table"],
+    ["mirror","A reflective surface"],["sofa","A long comfortable seat"],
+    ["table","You eat your meals at it"],["window","An opening in a wall for light"],
+    // Body
+    ["arm","One of two limbs from shoulder to hand"],["ear","You hear with it"],
+    ["eye","You see with it"],["face","The front part of your head"],
+    ["foot","The lower part of your leg"],["hand","At the end of your arm"],
+    ["head","The top part of your body"],["knee","The joint in the middle of your leg"],
+    ["leg","One of two lower limbs"],["lip","The fleshy part around your mouth"],
+    ["neck","Connects your head to your body"],["nose","You breathe and smell with it"],
+    ["skin","The outer covering of your body"],["tooth","You have many in your mouth"],
+    // Nature
+    ["beach","Sand and sea"],["cave","A hollow space in rock"],
+    ["cloud","White and fluffy in the sky"],["desert","A hot dry area"],
+    ["earth","The planet we live on"],["forest","A large area of trees"],
+    ["hill","A raised area smaller than a mountain"],["lake","A large body of still water"],
+    ["leaf","A flat green part of a plant"],["moon","Orbits the earth and shines at night"],
+    ["ocean","A vast body of salt water"],["rain","Water falling from clouds"],
+    ["river","Water flowing through the land"],["rock","A hard natural object"],
+    ["sand","Fine grains found on beaches"],["seed","A tiny plant embryo"],
+    ["star","A bright light in the night sky"],["stone","A hard natural object"],
+    ["sun","The star at the centre of our solar system"],["tree","A tall plant with a trunk"],
+    // Colours
+    ["black","The darkest colour"],["blue","The colour of the sky"],
+    ["brown","The colour of chocolate"],["green","The colour of grass"],
+    ["grey","A colour between black and white"],["orange","The colour of an orange"],
+    ["pink","A light shade of red"],["purple","A mix of red and blue"],
+    ["red","The colour of a tomato"],["white","The colour of snow"],
+    ["yellow","The colour of the sun"],
+    // Numbers & time
+    ["clock","A device showing the time"],["hour","Sixty minutes"],
+    ["month","There are twelve in a year"],["night","The dark part of the day"],
+    ["today","The current day"],["week","Seven days"],["year","Twelve months"],
+    // Family
+    ["aunt","Your parent s sister"],["baby","A very young child"],
+    ["brother","A male sibling"],["child","A young person"],
+    ["cousin","A child of your aunt or uncle"],["daughter","A female child"],
+    ["father","A male parent"],["mother","A female parent"],
+    ["sister","A female sibling"],["son","A male child"],
+    ["uncle","Your parent s brother"],
+  ],
+  medium: [
+    ["absence","Not being present somewhere"],["accent","A distinctive way of pronouncing words"],
+    ["achieve","To successfully reach a goal"],["ambition","A strong desire to succeed"],
+    ["ancient","Very old, from long ago"],["anxious","Feeling worried and nervous"],
+    ["arrange","To put things in order"],["attempt","To try to do something"],
+    ["awkward","Causing difficulty or embarrassment"],["balance","An even distribution of weight"],
+    ["bargain","Something bought at a low price"],["belief","Something accepted as true"],
+    ["capable","Having the ability to do something"],["captain","The leader of a team or ship"],
+    ["careful","Giving attention to avoid danger"],["caution","Care taken to avoid danger"],
+    ["century","A period of one hundred years"],["cherish","To protect and care for lovingly"],
+    ["climate","The weather conditions of an area"],["comfort","A state of physical ease"],
+    ["complex","Complicated, with many parts"],["concern","Worry about something"],
+    ["courage","The ability to do something frightening"],["culture","The ideas and customs of a society"],
+    ["curious","Eager to know or learn something"],["customs","Traditional ways of behaving"],
+    ["develop","To grow or cause to grow"],["devoted","Very loving and loyal"],
+    ["dialect","A regional form of a language"],["distant","Far away in space or time"],
+    ["diverse","Showing great variety"],["drought","A long period without rain"],
+    ["emotion","A strong feeling such as joy"],["enforce","To make people obey a rule"],
+    ["enhance","To improve the quality of something"],["ensure","To make certain that something happens"],
+    ["ethical","Morally good and correct"],["evident","Clearly seen or understood"],
+    ["exclude","To keep someone out of a group"],["explore","To travel through unfamiliar areas"],
+    ["fiction","Literature describing imaginary events"],["foreign","From or in another country"],
+    ["fragile","Easily broken or damaged"],["freedom","The power to act without restraint"],
+    ["genuine","Truly what it is claimed to be"],["gesture","A body movement to express something"],
+    ["grateful","Feeling thankful"],["harvest","The process of gathering crops"],
+    ["hostile","Unfriendly and aggressive"],["humour","British spelling of comedy or funniness"],
+    ["imagine","To form a mental image of something"],["improve","To make or become better"],
+    ["include","To have as part of a whole"],["inspire","To fill someone with motivation"],
+    ["justice","Fair behaviour or treatment"],["leisure","Free time, time for enjoyment"],
+    ["liberty","Freedom from control or restrictions"],["licence","British English for official permission"],
+    ["loyalty","Faithfulness and devotion to someone"],["massive","Very large in size"],
+    ["migrate","To move from one place to another"],["minimal","The smallest possible amount"],
+    ["miracle","A remarkable impossible event"],["mystery","Something unexplained or unknown"],
+    ["network","A group of interconnected things"],["neutral","Not supporting either side"],
+    ["obvious","Easily seen or understood"],["offence","British spelling, a breach of rules"],
+    ["opinion","A personal view or judgement"],["outcome","The result of an action"],
+    ["pattern","A repeated arrangement"],["pension","Regular payment after retirement"],
+    ["perform","To carry out in front of an audience"],["poverty","The state of being extremely poor"],
+    ["precise","Exact and accurate"],["prevent","To stop something from happening"],
+    ["process","A series of actions to achieve a result"],["provide","To supply or make available"],
+    ["purpose","The reason something is done"],["qualify","To become eligible for something"],
+    ["recover","To return to a normal state"],["reflect","To think deeply about something"],
+    ["refugee","A person forced to leave their country"],["release","To set free or make available"],
+    ["replace","To take the place of something"],["respect","Admiration for someone"],
+    ["restore","To return to original condition"],["revenge","Harm done in return for harm"],
+    ["routine","A regular sequence of actions"],["scenery","Natural features of a landscape"],
+    ["serious","Important and needing thought"],["silence","Complete absence of sound"],
+    ["similar","Having qualities in common"],["society","A community of people"],
+    ["species","A group of similar organisms"],["stadium","A large venue for sport"],
+    ["storage","Space for keeping things"],["strange","Unusual or surprising"],
+    ["stretch","To extend to full length"],["success","Achieving your goals"],
+    ["survive","To continue to live or exist"],["tragedy","A serious play with unhappy ending"],
+    ["unusual","Not commonly done or seen"],["upgrade","To raise to a higher standard"],
+    ["variety","A range of different things"],["venture","A risky business enterprise"],
+    ["vibrant","Full of energy and enthusiasm"],["visible","Able to be seen"],
+    ["welfare","Health, happiness and wellbeing"],["willing","Ready to do something"],
+    ["witness","A person who sees an event"],
+    // Phrasal verbs
+    ["break down","To stop working, or lose control emotionally"],
+    ["carry on","To continue doing something"],
+    ["catch up","To reach the same level as others"],
+    ["cheer up","To become or make someone happier"],
+    ["fall out","To have an argument with someone"],
+    ["give up","To stop trying"],["look after","To take care of someone"],
+    ["make up","To invent, or reconcile after argument"],
+    ["pick up","To collect, or learn informally"],
+    ["put off","To postpone, or cause dislike"],
+    ["run out","To have no more of something"],
+    ["set up","To establish or arrange something"],
+    ["show off","To display skills boastfully"],
+    ["show up","To arrive somewhere"],
+    ["take off","When a plane leaves the ground"],
+    ["turn down","To refuse, or lower the volume"],
+    ["work out","To exercise, or solve a problem"],
+  ],
+  advanced: [
+    ["aberration","A departure from what is normal"],["acrimony","Bitterness or ill feeling"],
+    ["admonish","To warn or reprimand firmly"],["affinity","A natural liking for something"],
+    ["allegory","A story with a hidden symbolic meaning"],["ambiguous","Open to more than one interpretation"],
+    ["ameliorate","To make something bad better"],["anecdote","A short entertaining account"],
+    ["antagonist","The character opposing the hero"],["antiquated","Old fashioned and no longer suitable"],
+    ["apathy","Lack of interest or concern"],["apprehensive","Anxious or fearful about the future"],
+    ["arbitrary","Based on random choice rather than reason"],["archaic","Very old or old fashioned"],
+    ["arduous","Involving great effort and difficulty"],["assiduous","Showing great care and effort"],
+    ["atrocity","An extremely wicked or cruel act"],["audacious","Willing to take risks, bold"],
+    ["auspicious","Giving a sign of future success"],["authentic","Genuine, of undisputed origin"],
+    ["autonomy","The right of self government"],["bellicose","Demonstrating aggression, warlike"],
+    ["benevolent","Well meaning and kindly"],["bureaucracy","A system with complex rules"],
+    ["cacophony","A harsh discordant mixture of sounds"],["callous","Showing no concern for others"],
+    ["candour","British spelling of openness and honesty"],["capitulate","To stop resisting, surrender"],
+    ["capricious","Given to sudden and unaccountable changes"],["castigate","To criticise or punish severely"],
+    ["catharsis","Release of strong emotions through art"],["caustic","Sarcastic in a harsh way"],
+    ["clandestine","Kept secret, done in a hidden way"],["cogent","Clear and logical, convincing"],
+    ["cohesion","The action of forming a united whole"],["complacent","Showing uncritical satisfaction"],
+    ["condescend","To act as if superior to others"],["connotation","An idea a word invokes beyond its literal meaning"],
+    ["contentious","Likely to cause disagreement"],["contrition","Deep regret for having done wrong"],
+    ["convoluted","Extremely complex and difficult to follow"],["credulous","Too willing to believe things"],
+    ["cynicism","Distrust of human sincerity"],["dauntless","Fearless, not discouraged"],
+    ["deference","Respectful submission to others judgement"],["demagogue","A leader who appeals to emotion"],
+    ["desolate","Uninhabited and bleak"],["diatribe","A forceful and bitter verbal attack"],
+    ["didactic","Intended to teach a moral lesson"],["diffidence","Shyness from lack of confidence"],
+    ["diligence","Careful and persistent work"],["dissonance","Lack of harmony, conflict"],
+    ["dogmatic","Laying down principles as absolute truth"],["duplicity","Deceitfulness"],
+    ["eccentric","Unconventional and slightly strange"],["eloquent","Fluent and persuasive in speech"],
+    ["empathy","The ability to understand others feelings"],["empirical","Based on observation and experiment"],
+    ["enigmatic","Difficult to interpret, mysterious"],["ephemeral","Lasting for a very short time"],
+    ["equivocal","Open to more than one interpretation"],["esoteric","Intended for a small specialist group"],
+    ["euphemism","A mild word replacing a harsh one"],["evanescent","Quickly fading from memory"],
+    ["exacerbate","To make a problem worse"],["exonerate","To officially free from blame"],
+    ["expedient","Convenient rather than fair"],["extravagant","Lacking restraint in spending"],
+    ["fallacious","Based on mistaken belief"],["fastidious","Very attentive to accuracy"],
+    ["flagrant","Conspicuously wrong and shameless"],["flamboyant","Tending to attract attention"],
+    ["foreshadow","To hint at a future event in a story"],["formidable","Inspiring fear or respect"],
+    ["fortuitous","Happening by chance, often luckily"],["frivolous","Not serious, having little value"],
+    ["furtive","Attempting to avoid notice, secretive"],["garrulous","Excessively talkative"],
+    ["gregarious","Fond of company, sociable"],["hackneyed","Overused, lacking originality"],
+    ["hyperbole","Exaggerated statements not meant literally"],["hypocrite","Claims different beliefs from actions"],
+    ["immutable","Unchanging over time"],["impartial","Treating all rivals equally, fair"],
+    ["impeccable","In accordance with the highest standards"],["implicit","Implied though not directly stated"],
+    ["inadvertent","Not deliberate, unintentional"],["incongruous","Not in harmony with surroundings"],
+    ["indignant","Feeling anger at unjust treatment"],["indolent","Wanting to avoid activity, lazy"],
+    ["inevitable","Certain to happen, unavoidable"],["inquisitive","Curious, eager to investigate"],
+    ["insidious","Proceeding in a gradual harmful way"],["intrepid","Fearless and adventurous"],
+    ["irrevocable","Not able to be changed or reversed"],["laconic","Using few words, brief"],
+    ["lethargic","Affected by lethargy, sluggish"],["lucid","Clearly expressed, easy to understand"],
+    ["magnanimous","Very generous or forgiving"],["malevolent","Wishing to do evil"],
+    ["meticulous","Showing great attention to detail"],["misanthrope","A person who dislikes humankind"],
+    ["mitigate","To make less severe or serious"],["monotonous","Dull through lack of variety"],
+    ["munificent","Larger or more generous than expected"],["nefarious","Wicked or criminal"],
+    ["negligent","Failing to take proper care"],["nostalgia","Sentimental longing for the past"],
+    ["obsequious","Excessively eager to please or obey"],["obstinate","Stubbornly refusing to change"],
+    ["ominous","Suggesting that something bad will happen"],["omniscient","Knowing everything"],
+    ["ostentatious","Designed to impress, showy"],["oxymoron","A figure of speech with contradictory terms"],
+    ["paradox","A statement that seems contradictory but true"],["parsimonious","Very unwilling to spend money"],
+    ["pedantic","Excessively concerned with minor details"],["perfidious","Guilty of betrayal, treacherous"],
+    ["perpetuate","To make something continue indefinitely"],["philanthropy","Promoting the welfare of others"],
+    ["platitude","A remark so often said it is meaningless"],["poignant","Evoking a sense of sadness"],
+    ["pompous","Affectedly grand and self important"],["pragmatic","Dealing with things practically"],
+    ["precarious","Not securely held, uncertain"],["pretentious","Attempting to impress"],
+    ["prevalent","Widespread, commonly occurring"],["prodigious","Remarkably great in size"],
+    ["prolific","Producing a large amount of something"],["propaganda","Information promoting a political view"],
+    ["protagonist","The main character in a story"],["provocative","Tending to excite or anger"],
+    ["pugnacious","Eager to argue or fight"],["querulous","Complaining, whining"],
+    ["recalcitrant","Stubbornly resisting authority"],["reconcile","To restore friendly relations"],
+    ["redundant","Not needed, or British English for made unemployed"],
+    ["resilience","Ability to recover from difficulties"],["reticent","Not inclined to speak freely"],
+    ["rhetoric","Persuasive language"],["ruthless","Having no compassion, merciless"],
+    ["sarcasm","Use of irony to mock"],["satire","Using humour to criticise folly"],
+    ["scrupulous","Very careful and thorough"],["serendipity","Finding something good by accident"],
+    ["sycophant","A person who flatters to gain advantage"],["taciturn","Reserved in speech"],
+    ["tenacious","Tending to keep a firm hold"],["transient","Lasting only for a short time"],
+    ["treacherous","Guilty of betrayal"],["tumultuous","Loud, confused and exciting"],
+    ["ubiquitous","Present or appearing everywhere"],["vacuous","Showing a lack of thought"],
+    ["vindictive","Having a strong desire for revenge"],["vociferous","Making a great outcry, loud"],
+    ["volatile","Liable to change rapidly"],["vulnerable","Exposed to the possibility of harm"],
+    ["whimsical","Playfully quaint or fanciful"],["zealous","Having great energy in pursuit of a cause"],
+  ]
+};
+
+// ============================================================
+// CROSSWORD ENGINE
+// ============================================================
+const GRID_SIZES = { beginner: 10, medium: 13, advanced: 15 };
+const MIN_WORDS = { beginner: 8, medium: 12, advanced: 16 };
+
+let currentLevel = '';
+let currentPuzzle = null;
+let selectedClue = null;
+
+function startGame(level) {
+  currentLevel = level;
+  document.getElementById('levelScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'block';
+  const badge = document.getElementById('levelBadge');
+  badge.className = 'level-badge ' + level;
+  badge.textContent = level === 'beginner' ? '🌱 Beginner' : level === 'medium' ? '📘 Medium' : '🔥 Advanced';
+  newPuzzle();
+}
+
+function changeLevel() {
+  document.getElementById('gameScreen').style.display = 'none';
+  document.getElementById('levelScreen').style.display = 'block';
+}
+
+function newPuzzle() {
+  document.getElementById('loadingDiv').style.display = 'block';
+  document.getElementById('gameLayout').style.display = 'none';
+  document.getElementById('completeBanner').classList.remove('show');
+  setTimeout(() => {
+    try {
+      currentPuzzle = generateCrossword(currentLevel);
+      renderPuzzle(currentPuzzle);
+      document.getElementById('loadingDiv').style.display = 'none';
+      document.getElementById('gameLayout').style.display = 'grid';
+    } catch(e) {
+      // retry
+      setTimeout(() => {
+        currentPuzzle = generateCrossword(currentLevel);
+        renderPuzzle(currentPuzzle);
+        document.getElementById('loadingDiv').style.display = 'none';
+        document.getElementById('gameLayout').style.display = 'grid';
+      }, 500);
+    }
+  }, 100);
+}
+
+function generateCrossword(level) {
+  const size = GRID_SIZES[level];
+  const minWords = MIN_WORDS[level];
+  const bank = [...wordBanks[level]].sort(() => Math.random() - 0.5);
+
+  // Only use words that fit in the grid (no spaces for crossword, filter short/long)
+  const candidates = bank
+    .filter(([w]) => !w.includes(' ') && w.length >= 3 && w.length <= size - 2)
+    .slice(0, 60);
+
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+    const result = tryBuild(shuffled, size, minWords);
+    if (result && result.placed.length >= minWords) return result;
+  }
+
+  // Fallback with fewer words
+  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+  return tryBuild(shuffled, size, 6) || tryBuild(shuffled.slice(0, 20), size, 4);
+}
+
+function tryBuild(words, size, minWords) {
+  const grid = Array.from({length: size}, () => Array(size).fill(null));
+  const placed = [];
+
+  function canPlace(word, row, col, dir) {
+    const dr = dir === 'down' ? 1 : 0;
+    const dc = dir === 'across' ? 1 : 0;
+    // Check bounds
+    if (row + dr * (word.length - 1) >= size) return false;
+    if (col + dc * (word.length - 1) >= size) return false;
+    // Check before start
+    const pr = row - dr, pc = col - dc;
+    if (pr >= 0 && pc >= 0 && grid[pr][pc] !== null) return false;
+    // Check after end
+    const er = row + dr * word.length, ec = col + dc * word.length;
+    if (er < size && ec < size && grid[er][ec] !== null) return false;
+
+    let intersections = 0;
+    for (let i = 0; i < word.length; i++) {
+      const r = row + dr * i, c = col + dc * i;
+      const cell = grid[r][c];
+      if (cell === null) {
+        // Check perpendicular neighbours
+        const perpr = r + dc, perpc = c + dr;
+        const perpr2 = r - dc, perpc2 = c - dr;
+        if (perpr < size && perpc < size && perpr >= 0 && perpc >= 0 && grid[perpr][perpc] !== null) return false;
+        if (perpr2 < size && perpc2 < size && perpr2 >= 0 && perpc2 >= 0 && grid[perpr2][perpc2] !== null) return false;
+      } else if (cell === word[i]) {
+        intersections++;
+      } else {
+        return false;
+      }
+    }
+    if (placed.length > 0 && intersections === 0) return false;
+    return true;
+  }
+
+  function placeWord(word, row, col, dir, clue) {
+    const dr = dir === 'down' ? 1 : 0;
+    const dc = dir === 'across' ? 1 : 0;
+    for (let i = 0; i < word.length; i++) {
+      grid[row + dr * i][col + dc * i] = word[i];
+    }
+    placed.push({ word, clue, row, col, dir });
+  }
+
+  // Place first word in middle
+  if (words.length === 0) return null;
+  const first = words[0];
+  const midRow = Math.floor(size / 2);
+  const midCol = Math.floor((size - first[0].length) / 2);
+  placeWord(first[0], midRow, midCol, 'across', first[1]);
+
+  // Try to place remaining words
+  for (let wi = 1; wi < words.length && placed.length < 25; wi++) {
+    const [word, clue] = words[wi];
+    let bestPlace = null;
+
+    // Try to intersect with already placed words
+    for (const existing of placed) {
+      for (let ei = 0; ei < existing.word.length; ei++) {
+        const existChar = existing.word[ei];
+        for (let wi2 = 0; wi2 < word.length; wi2++) {
+          if (word[wi2] !== existChar) continue;
+          // Try across: existing is down, new is across
+          if (existing.dir === 'down') {
+            const row = existing.row + ei;
+            const col = existing.col - wi2;
+            if (col >= 0 && canPlace(word, row, col, 'across')) {
+              bestPlace = { row, col, dir: 'across' };
+              break;
+            }
+          }
+          // Try down: existing is across, new is down
+          if (existing.dir === 'across') {
+            const row = existing.row - wi2;
+            const col = existing.col + ei;
+            if (row >= 0 && canPlace(word, row, col, 'down')) {
+              bestPlace = { row, col, dir: 'down' };
+              break;
+            }
+          }
+        }
+        if (bestPlace) break;
+      }
+      if (bestPlace) break;
+    }
+
+    if (bestPlace) {
+      placeWord(word, bestPlace.row, bestPlace.col, bestPlace.dir, clue);
+    }
+  }
+
+  if (placed.length < minWords) return null;
+
+  // Number the words
+  const cellNums = {};
+  let num = 1;
+  const acrossWords = placed.filter(p => p.dir === 'across').sort((a,b) => a.row - b.row || a.col - b.col);
+  const downWords = placed.filter(p => p.dir === 'down').sort((a,b) => a.row - b.row || a.col - b.col);
+
+  // Collect all start positions and assign numbers
+  const startPositions = {};
+  [...acrossWords, ...downWords].forEach(p => {
+    const key = `${p.row},${p.col}`;
+    if (!startPositions[key]) startPositions[key] = num++;
+    p.number = startPositions[key];
+  });
+
+  return { grid, placed, acrossWords, downWords, size };
+}
+
+function renderPuzzle(puzzle) {
+  if (!puzzle) return;
+  const { grid, acrossWords, downWords, size } = puzzle;
+
+  // Build number map
+  const numMap = {};
+  [...acrossWords, ...downWords].forEach(p => {
+    numMap[`${p.row},${p.col}`] = p.number;
+  });
+
+  // Render grid
+  const gridEl = document.getElementById('grid');
+  gridEl.style.gridTemplateColumns = `repeat(${size}, 36px)`;
+  gridEl.innerHTML = '';
+
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      if (grid[r][c] === null) {
+        cell.classList.add('black');
+      } else {
+        const num = numMap[`${r},${c}`];
+        if (num) {
+          const span = document.createElement('span');
+          span.className = 'cell-num';
+          span.textContent = num;
+          cell.appendChild(span);
+        }
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        input.dataset.answer = grid[r][c];
+        input.addEventListener('input', (e) => {
+          e.target.value = e.target.value.toUpperCase().slice(-1);
+          cell.classList.remove('correct','wrong');
+          checkComplete();
+          // Move to next
+          moveToNext(r, c);
+        });
+        input.addEventListener('focus', () => highlightWord(r, c));
+        input.addEventListener('keydown', handleKeyNav);
+        cell.appendChild(input);
+      }
+      gridEl.appendChild(cell);
+    }
+  }
+
+  // Render clues
+  const acrossDiv = document.getElementById('acrossClues');
+  const downDiv = document.getElementById('downClues');
+  acrossDiv.innerHTML = '';
+  downDiv.innerHTML = '';
+
+  acrossWords.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'clue-item';
+    div.textContent = `${p.number}. ${p.clue} (${p.word.length})`;
+    div.dataset.row = p.row; div.dataset.col = p.col; div.dataset.dir = 'across';
+    div.id = `clue-across-${p.number}`;
+    div.onclick = () => { focusWord(p); };
+    acrossDiv.appendChild(div);
+  });
+
+  downWords.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'clue-item';
+    div.textContent = `${p.number}. ${p.clue} (${p.word.length})`;
+    div.dataset.row = p.row; div.dataset.col = p.col; div.dataset.dir = 'down';
+    div.id = `clue-down-${p.number}`;
+    div.onclick = () => { focusWord(p); };
+    downDiv.appendChild(div);
+  });
+
+  document.getElementById('solvedCount').textContent = '0';
+  document.getElementById('totalCount').textContent = puzzle.placed.length;
+  updateSolvedCount();
+}
+
+function getCell(r, c) {
+  return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+}
+
+function focusWord(p) {
+  selectedClue = p;
+  highlightWord(p.row, p.col, p.dir);
+  const cell = getCell(p.row, p.col);
+  if (cell) { const inp = cell.querySelector('input'); if(inp) inp.focus(); }
+  // Scroll clue into view
+  const clueEl = document.getElementById(`clue-${p.dir}-${p.number}`);
+  if (clueEl) clueEl.scrollIntoView({ block: 'nearest' });
+}
+
+function highlightWord(r, c, preferDir) {
+  // Clear all highlights
+  document.querySelectorAll('.cell.highlighted').forEach(el => el.classList.remove('highlighted'));
+  document.querySelectorAll('.clue-item.active').forEach(el => el.classList.remove('active'));
+
+  // Find which word(s) this cell belongs to
+  const words = currentPuzzle.placed.filter(p => {
+    if (p.dir === 'across') return p.row === r && c >= p.col && c < p.col + p.word.length;
+    if (p.dir === 'down') return p.col === c && r >= p.row && r < p.row + p.word.length;
+    return false;
+  });
+
+  if (words.length === 0) return;
+  let chosen = words[0];
+  if (preferDir) chosen = words.find(w => w.dir === preferDir) || words[0];
+  if (selectedClue && words.includes(selectedClue)) chosen = selectedClue;
+  selectedClue = chosen;
+
+  // Highlight cells
+  const dr = chosen.dir === 'down' ? 1 : 0;
+  const dc = chosen.dir === 'across' ? 1 : 0;
+  for (let i = 0; i < chosen.word.length; i++) {
+    const cell = getCell(chosen.row + dr * i, chosen.col + dc * i);
+    if (cell) cell.classList.add('highlighted');
+  }
+  // Highlight clue
+  const clueEl = document.getElementById(`clue-${chosen.dir}-${chosen.number}`);
+  if (clueEl) clueEl.classList.add('active');
+}
+
+function moveToNext(r, c) {
+  if (!selectedClue) return;
+  const dr = selectedClue.dir === 'down' ? 1 : 0;
+  const dc = selectedClue.dir === 'across' ? 1 : 0;
+  const nr = r + dr, nc = c + dc;
+  const next = getCell(nr, nc);
+  if (next && !next.classList.contains('black')) {
+    const inp = next.querySelector('input');
+    if (inp) inp.focus();
+  }
+}
+
+function handleKeyNav(e) {
+  const cell = e.target.closest('.cell');
+  const r = parseInt(cell.dataset.r), c = parseInt(cell.dataset.c);
+  if (e.key === 'Backspace' && e.target.value === '') {
+    if (!selectedClue) return;
+    const dr = selectedClue.dir === 'down' ? 1 : 0;
+    const dc = selectedClue.dir === 'across' ? 1 : 0;
+    const prev = getCell(r - dr, c - dc);
+    if (prev && !prev.classList.contains('black')) { const inp = prev.querySelector('input'); if(inp){inp.focus();inp.value='';} }
+    e.preventDefault();
+  }
+  if (e.key === 'ArrowRight') { const next = getCell(r, c+1); if(next&&!next.classList.contains('black')){next.querySelector('input')?.focus();} }
+  if (e.key === 'ArrowLeft') { const prev = getCell(r, c-1); if(prev&&!prev.classList.contains('black')){prev.querySelector('input')?.focus();} }
+  if (e.key === 'ArrowDown') { const next = getCell(r+1, c); if(next&&!next.classList.contains('black')){next.querySelector('input')?.focus();} }
+  if (e.key === 'ArrowUp') { const prev = getCell(r-1, c); if(prev&&!prev.classList.contains('black')){prev.querySelector('input')?.focus();} }
+}
+
+function checkAnswers() {
+  document.querySelectorAll('.cell:not(.black)').forEach(cell => {
+    const inp = cell.querySelector('input');
+    if (!inp || inp.value === '') return;
+    if (inp.value.toUpperCase() === inp.dataset.answer.toUpperCase()) {
+      cell.classList.add('correct'); cell.classList.remove('wrong');
+    } else {
+      cell.classList.add('wrong'); cell.classList.remove('correct');
+    }
+  });
+  updateSolvedCount();
+}
+
+function revealAll() {
+  document.querySelectorAll('.cell:not(.black)').forEach(cell => {
+    const inp = cell.querySelector('input');
+    if (inp) { inp.value = inp.dataset.answer; cell.classList.add('correct'); cell.classList.remove('wrong'); }
+  });
+  updateSolvedCount();
+  checkComplete();
+}
+
+function updateSolvedCount() {
+  if (!currentPuzzle) return;
+  let solved = 0;
+  currentPuzzle.placed.forEach(p => {
+    const dr = p.dir === 'down' ? 1 : 0;
+    const dc = p.dir === 'across' ? 1 : 0;
+    const complete = p.word.split('').every((ch, i) => {
+      const cell = getCell(p.row + dr * i, p.col + dc * i);
+      const inp = cell?.querySelector('input');
+      return inp && inp.value.toUpperCase() === ch.toUpperCase();
+    });
+    if (complete) {
+      solved++;
+      const clueEl = document.getElementById(`clue-${p.dir}-${p.number}`);
+      if (clueEl) clueEl.classList.add('solved');
+    }
+  });
+  document.getElementById('solvedCount').textContent = solved;
+  document.getElementById('totalCount').textContent = currentPuzzle.placed.length;
+}
+
+function checkComplete() {
+  updateSolvedCount();
+  if (!currentPuzzle) return;
+  const allCorrect = Array.from(document.querySelectorAll('.cell:not(.black) input'))
+    .every(inp => inp.value.toUpperCase() === inp.dataset.answer.toUpperCase());
+  if (allCorrect && document.querySelectorAll('.cell:not(.black) input').length > 0) {
+    document.getElementById('completeBanner').classList.add('show');
+  }
+}
+</script>
+</body>
+</html>
